@@ -180,7 +180,21 @@ class ShutterLamesCard extends HTMLElement {
     }
 
     get _label() {
-        return this._config.label || this._stateObj?.attributes?.friendly_name || "";
+        if (this._config.label) return this._config.label;
+
+        // Le friendly_name calculé (ex. "Volet Anaïs Store") concatène le nom
+        // de l'appareil et le nom par défaut de l'entité (traduit depuis le
+        // device_class). On préfère donc le nom de l'appareil / le nom
+        // explicitement défini sur l'entité, tel que saisi par l'utilisateur.
+        const entry = this._hass?.entities?.[this._config.entity];
+        const device = entry?.device_id ? this._hass?.devices?.[entry.device_id] : null;
+        return (
+            device?.name_by_user ||
+            device?.name ||
+            entry?.name ||
+            this._stateObj?.attributes?.friendly_name ||
+            ""
+        );
     }
 
     _nearestStep(pos) {
