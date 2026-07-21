@@ -22,6 +22,9 @@ class ShutterLamesCardEditor extends HTMLElement {
 
     _updateConfig(patch) {
         this._config = { ...this._config, ...patch };
+        Object.keys(patch).forEach((key) => {
+            if (patch[key] === undefined) delete this._config[key];
+        });
         this.dispatchEvent(
             new CustomEvent("config-changed", {
                 detail: { config: this._config },
@@ -58,7 +61,8 @@ class ShutterLamesCardEditor extends HTMLElement {
                     background: none;
                     cursor: pointer;
                 }
-                input[type="number"] {
+                input[type="number"],
+                input[type="text"] {
                     width: 100%;
                     box-sizing: border-box;
                     padding: 8px;
@@ -76,6 +80,10 @@ class ShutterLamesCardEditor extends HTMLElement {
             <div class="row">
                 <label>Nombre de lames (pas)</label>
                 <input type="number" id="lames-input" min="1" max="30" step="1" />
+            </div>
+            <div class="row">
+                <label>Libellé affiché dans la bulle (optionnel)</label>
+                <input type="text" id="label-input" placeholder="Par défaut : nom de l'entité" />
             </div>
         `;
 
@@ -98,6 +106,12 @@ class ShutterLamesCardEditor extends HTMLElement {
             const val = parseInt(ev.target.value, 10);
             if (val > 0) this._updateConfig({ lames: val });
         });
+
+        this._labelInput = this.querySelector("#label-input");
+        this._labelInput.addEventListener("input", (ev) => {
+            const val = ev.target.value;
+            this._updateConfig({ label: val.trim() ? val : undefined });
+        });
     }
 
     _update() {
@@ -107,6 +121,9 @@ class ShutterLamesCardEditor extends HTMLElement {
         this._entityPicker.value = this._config.entity || "";
         this._colorInput.value = this._toHex(this._config.color);
         this._lamesInput.value = this._config.lames || 4;
+        if (document.activeElement !== this._labelInput) {
+            this._labelInput.value = this._config.label || "";
+        }
     }
 }
 
@@ -162,6 +179,10 @@ class ShutterLamesCard extends HTMLElement {
         return this._config.color || "var(--primary-color, #f5a623)";
     }
 
+    get _label() {
+        return this._config.label || this._stateObj?.attributes?.friendly_name || "";
+    }
+
     _nearestStep(pos) {
         return this._steps.reduce((a, b) => (Math.abs(b - pos) < Math.abs(a - pos) ? b : a));
     }
@@ -192,16 +213,33 @@ class ShutterLamesCard extends HTMLElement {
         const onUp = () => {
             if (!dragging) return;
             dragging = false;
+            this._dragging = false;
             window.removeEventListener("pointermove", onMove);
             window.removeEventListener("pointerup", onUp);
             if (this._dragPosition != null) {
                 this._setPosition(this._dragPosition);
             }
+            this._updateVisual(container);
         };
+
+        // Le survol (souris) n'existe pas au tactile : sur mobile, la bulle
+        // apparaît pendant l'appui/glissement (this._dragging), pas via hover.
+        container.addEventListener("pointerenter", (ev) => {
+            if (ev.pointerType !== "mouse") return;
+            this._hovering = true;
+            this._updateVisual(container);
+        });
+
+        container.addEventListener("pointerleave", (ev) => {
+            if (ev.pointerType !== "mouse") return;
+            this._hovering = false;
+            this._updateVisual(container);
+        });
 
         container.addEventListener("pointerdown", (ev) => {
             ev.preventDefault();
             dragging = true;
+            this._dragging = true;
             this._dragPosition = this._positionFromEvent(container, ev.clientY);
             this._updateVisual(container);
             window.addEventListener("pointermove", onMove);
@@ -217,6 +255,15 @@ class ShutterLamesCard extends HTMLElement {
             const boundary = parseFloat(line.dataset.boundary);
             line.style.display = boundary <= filledPercent + 0.01 ? "block" : "none";
         });
+
+        const tooltip = container.querySelector(".tooltip");
+        const showTooltip = this._hovering || this._dragging;
+        tooltip.classList.toggle("visible", showTooltip);
+        if (showTooltip) {
+            const label = this._label;
+            tooltip.textContent = label ? `${label} ${position}%` : `${position}%`;
+            tooltip.style.top = `${Math.min(92, Math.max(8, filledPercent))}%`;
+        }
     }
 
     _render() {
@@ -258,6 +305,24 @@ class ShutterLamesCard extends HTMLElement {
                 height: 1px;
                 background: rgba(0,0,0,0.28);
             }
+            .lames .tooltip {
+                position: absolute;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: rgba(0,0,0,0.75);
+                color: #fff;
+                font-size: 12px;
+                font-weight: 600;
+                padding: 2px 8px;
+                border-radius: 4px;
+                white-space: nowrap;
+                pointer-events: none;
+                opacity: 0;
+                transition: opacity 0.15s ease;
+            }
+            .lames .tooltip.visible {
+                opacity: 1;
+            }
         `;
 
         const boundaries = this._steps.slice(1, -1); // limites internes (hors 0 et 100)
@@ -271,6 +336,7 @@ class ShutterLamesCard extends HTMLElement {
                 <div class="lames">
                     <div class="fill"></div>
                     ${lines}
+                    <div class="tooltip"></div>
                 </div>
             </div>`;
 

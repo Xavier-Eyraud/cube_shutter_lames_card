@@ -39,6 +39,7 @@ type: custom:shutter-lames-card
 entity: cover.volet_chambre
 color: "#B784C4"
 lames: 10
+label: "Volet Chambre"
 ```
 
 ## Options
@@ -48,3 +49,4 @@ lames: 10
 | `entity` | oui    | —                      | Entité `cover.*` à piloter                              |
 | `color`  | non    | `var(--primary-color)` | Couleur de remplissage des lames                         |
 | `lames`  | non    | `4`                    | Nombre de lames — la position s'accroche à `100/lames` % |
+| `label`  | non    | nom de l'entité        | Libellé affiché dans la bulle au survol/glissement, ex. `Volet Chambre 25%`. Si absent, le nom (`friendly_name`) de l'entité est utilisé automatiquement. |
