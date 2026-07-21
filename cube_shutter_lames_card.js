@@ -147,11 +147,43 @@ class ShutterLamesCard extends HTMLElement {
 
     set hass(hass) {
         this._hass = hass;
+        this._maybeResolveAutoLabel();
         this._render();
     }
 
     getCardSize() {
         return 4;
+    }
+
+    _maybeResolveAutoLabel() {
+        const entityId = this._config?.entity;
+        if (!entityId || this._config.label) return;
+        if (this._autoLabelEntity === entityId) return;
+        this._autoLabelEntity = entityId;
+
+        const cached = ShutterLamesCard._registryCache.get(entityId);
+        if (cached != null) {
+            this._autoLabel = cached;
+            return;
+        }
+
+        this._hass
+            .callWS({ type: "config/entity_registry/get", entity_id: entityId })
+            .then(async (entry) => {
+                let label = entry?.name;
+                if (!label && entry?.device_id) {
+                    const devices = await this._hass.callWS({ type: "config/device_registry/list" });
+                    const device = devices.find((d) => d.id === entry.device_id);
+                    label = device?.name_by_user || device?.name;
+                }
+                label = label || this._stateObj?.attributes?.friendly_name || "";
+                ShutterLamesCard._registryCache.set(entityId, label);
+                this._autoLabel = label;
+                this._render();
+            })
+            .catch(() => {
+                this._autoLabel = this._stateObj?.attributes?.friendly_name || "";
+            });
     }
 
     get _stateObj() {
@@ -181,20 +213,14 @@ class ShutterLamesCard extends HTMLElement {
 
     get _label() {
         if (this._config.label) return this._config.label;
-
+        if (this._autoLabelEntity === this._config.entity && this._autoLabel) {
+            return this._autoLabel;
+        }
         // Le friendly_name calculé (ex. "Volet Anaïs Store") concatène le nom
         // de l'appareil et le nom par défaut de l'entité (traduit depuis le
-        // device_class). On préfère donc le nom de l'appareil / le nom
-        // explicitement défini sur l'entité, tel que saisi par l'utilisateur.
-        const entry = this._hass?.entities?.[this._config.entity];
-        const device = entry?.device_id ? this._hass?.devices?.[entry.device_id] : null;
-        return (
-            device?.name_by_user ||
-            device?.name ||
-            entry?.name ||
-            this._stateObj?.attributes?.friendly_name ||
-            ""
-        );
+        // device_class) : en attendant la résolution via le registre, on
+        // affiche ce nom complet en repli temporaire.
+        return this._stateObj?.attributes?.friendly_name || "";
     }
 
     _nearestStep(pos) {
@@ -359,6 +385,8 @@ class ShutterLamesCard extends HTMLElement {
         this._attachDrag(lamesContainer);
     }
 }
+
+ShutterLamesCard._registryCache = new Map();
 
 customElements.define("shutter-lames-card", ShutterLamesCard);
 
