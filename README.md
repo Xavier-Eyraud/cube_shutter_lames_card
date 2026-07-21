@@ -9,10 +9,19 @@ Carte Home Assistant personnalisée pour piloter un volet roulant (`cover`) par 
 
 ## Installation
 
-1. Copie `shutter-lames-card.js` dans le dossier `config/www/` de ta configuration Home Assistant.
+### Via HACS (recommandé)
+
+1. HACS → **Tableau de bord** → ⋮ → **Dépôts personnalisés**.
+2. URL : `https://github.com/Xavier-Eyraud/cube_shutter_lames_card`, catégorie **Tableau de bord**.
+3. Cherche **Shutter Lames Card**, clique **Télécharger**. La ressource Lovelace est ajoutée automatiquement.
+4. Recharge la page.
+
+### Manuellement
+
+1. Copie `cube_shutter_lames_card.js` dans le dossier `config/www/` de ta configuration Home Assistant.
 2. Ajoute-le comme ressource Lovelace :
    - **Paramètres → Tableaux de bord → ⋮ → Ressources → Ajouter une ressource**
-   - URL : `/local/shutter-lames-card.js`
+   - URL : `/local/cube_shutter_lames_card.js`
    - Type : **Module JavaScript**
 3. Recharge la page (vide le cache navigateur si besoin).
 
